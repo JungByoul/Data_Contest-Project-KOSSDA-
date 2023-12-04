@@ -80,10 +80,15 @@ View(in_pop_head3)
 #2) 전처리 및 토큰화
 #(보험인구 1000명당 시설수 head3 먼저)
 in_pop_head3<- in_pop_head3 %>% as_tibble()
+in_pop_tail3 <- in_pop_tail3 %>% as_tibble()
 
 in_pop_head3_pr<- in_pop_head3 %>%
   mutate(...1 = str_replace_all(...1, "[^가-힣]", " "),
          ...1 = str_squish(...1))
+in_pop_tail3_pr <- in_pop_tail3 %>% 
+  mutate(...1 = str_replace_all(...1, "[^가-힣]", " "),
+         ...1 = str_squish(...1))
+
 
 in_pop_head3_token<- in_pop_head3_pr%>% 
   unnest_tokens(
@@ -92,17 +97,35 @@ in_pop_head3_token<- in_pop_head3_pr%>%
     token = extractNoun,
     drop = F
   )
+
+in_pop_tail3_token <- in_pop_tail3_pr %>% 
+  unnest_tokens(
+    input = ...1,
+    output = word,
+    token = extractNoun,
+    drop = F
+  )
+
+
 View(in_pop_head3_token)
 
 # 불용어 제거 및 1음절로 된 단어 제거
-stopword <- c("말씀", "때문", "문제", "사안", "정말", "너무", "예", "들이", "하다", "하게", "하면", "해서", "이번", "하네",
+stopword <- c("질의", "요청", "의사", "있습니", "하나", "말씀", "때문", "문제", "사안", "정말", "너무", "예", "들이", "하다", "하게", "하면", "해서", "이번", "하네",
               "해요", "이것", "니들", "하기", "하지", "한거", "해주",
               "그것", "어디", "여기", "까지", "이거", "하신", "만큼",
               "첫째", "덕분", "단지", "사이", "셋째", "정도", "여기", 
               "하고", "이름", "당시", "다음", "하신", "차례", "위대",
-              "이야기")
+              "이야기",
+              "그때", "번째", "이후", "그다음", "답변", "가지", "그렇습니", "거지", "확인","경우", "의원님", "주십시", "않습니", "하게", "부장관", "이상", "위원회", "하기", "위원회", "그것", "페이지", "발의", "다음", "하면", "들이", "얘기", " 정도", "규정", "하시", "이것", "진행", "오늘", "설치", "경우", "과정", "선정", "저장용량", "동안", "명확", "저희", "관리", "거기", "사항", "규정하", "정리", "일반", "문제", "그렇습니", "이상", "일부", "요청", "관련", "내용", "이유", "발언", "해서", "우리", "위원", "하신", "하겠습니", "결과", "부분", "말씀", "생각", "확인", "얘기", "운영", "위원", "그것", "를이", "사무", "진행", "주제관", "심사", "해서", "관련", "하신", "여담", "감사", "간사", "있습니", "만약", "시간", "년도", "조가", "의원", "사실", "중요")
+
+
 
 in_pop_head3_tokens<- in_pop_head3_token %>% 
+  filter(!word %in% stopword) %>% 
+  filter(str_count(word)>1) %>% 
+  select(word)
+
+in_pop_tail3_tokens<-  in_pop_tail3_token %>% 
   filter(!word %in% stopword) %>% 
   filter(str_count(word)>1) %>% 
   select(word)
@@ -118,12 +141,22 @@ in_pop_head3_count <- in_pop_head3_tokens %>%
 in_pop_head3_count$id = rownames(in_pop_head3_count)
 View(in_pop_head3_count) 
 
+in_pop_tail3_count <- in_pop_tail3_tokens %>% 
+  count(word, sort=T) %>% 
+  filter(n<=100)
+in_pop_tail3_count$id = rownames(in_pop_tail3_count)
+
 
 #DTM 생성
 dtm_in_pop_head3_count <- in_pop_head3_count%>% 
   cast_dtm(document = id, term = word, value = n)
 library(tm)
 as.matrix(dtm_in_pop_head3_count[1:15, 1:15])
+
+dtm_in_pop_tail3_count <- in_pop_tail3_count%>% 
+  cast_dtm(document = id, term = word, value = n)
+library(tm)
+as.matrix(dtm_in_pop_tail3_count[1:15, 1:15])
 
 #LDA 모델 생성
 library(topicmodels)
@@ -136,11 +169,22 @@ lda_model_in_pop_head3
 
 glimpse(lda_model_in_pop_head3)
 
+
+lda_model_in_pop_tail3<- LDA(dtm_in_pop_tail3_count,
+                             k = 10,
+                             method = 'Gibbs',
+                             control = list(seed = 123)
+)
 #beta값 활용하여 토픽별 주요 단어 분석
 library(tidytext)
 term_topic<- tidy(lda_model_in_pop_head3, matrix = 'beta')
 term_topic
 term_topic %>% count(topic) #토픽별로 22,911 행으로 되어 있음
+
+term_topic_tail<- tidy(lda_model_in_pop_tail3, matrix = 'beta')
+term_topic
+term_topic_tail %>% count(topic) #토픽별로 22,911 행으로 되어 있음
+
 
 #모든 토픽에서 등장 확률 높은 상위 15개 단어 추출
 terms(lda_model_in_pop_head3, 15) %>% data.frame()
@@ -148,6 +192,10 @@ terms(lda_model_in_pop_head3, 15) %>% data.frame()
 #추출된 주요 단어 시각화하기
 #토픽별 beta값 가장 높은 단어 15개 추출
 lda_model_in_pop_head3_topic <- term_topic %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n=15, with_ties = F)
+
+lda_model_in_pop_tail3_topic <- term_topic_tail %>% 
   group_by(topic) %>% 
   slice_max(beta, n=15, with_ties = F)
 
@@ -167,6 +215,19 @@ ggplot(lda_model_in_pop_head3_topic,
   labs(x = NULL)+
   theme(text = element_text(family = 'nanumgothic'))
 
+
+ggplot(lda_model_in_pop_tail3_topic,
+       aes(x = reorder_within(term, beta, topic),
+           y = beta,
+           fill = factor(topic))) +
+  geom_col(show.legend = F)+
+  facet_wrap(~topic, scales='free', ncol = 4)+
+  coord_flip()+
+  scale_x_reordered()+
+  scale_y_continuous(n.breaks = 4,
+                     labels = number_format(accuracy = 0.1))+
+  labs(x = NULL)+
+  theme(text = element_text(family = 'nanumgothic'))
 
 
 #아래는 함수작성해서 구하기.
@@ -199,7 +260,8 @@ preprocess_data <- function(data) {
       output = word,
       token = extractNoun,
       drop = FALSE
-    ) %>% filter(str_count(word)>1)
+    ) %>% filter(str_count(word)>1)%>% 
+    filter(!word %in% stopword)
   
   return(data_tokenized)
 }
