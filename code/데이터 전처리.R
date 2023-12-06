@@ -52,3 +52,21 @@ View(total_pop_join)
 
 #파일 내보내기
 write.csv(total_in_pop_join, '전체 인구 대비 시설비율(잠재수요).csv')
+
+
+
+#추가 분석
+insure <- read_excel('insurance_ratio.xlsx')
+View(insure)
+insure<- insure %>% select(시군구, 전체_비율)
+colnames(insure)<- c('시군구', 'ratio')
+ 
+boxplot(insure$ratio, main= 'The number of welfare facilities')
+
+ggplot(data = insure, aes(x = insure$ratio)) +
+  geom_density(fill = "blue", alpha = 0.8) +
+  theme_minimal()+
+  xlab('The number of welfare facilities')
+
+
+
