@@ -1,4 +1,4 @@
-#지표 분석
+#노인복지 자원(지표) 분석 및 시각화
 
 money_hosp_result$병의원_나누기_총인구<- ifelse(money_hosp_result$병의원_나누기_총인구>0, money_hosp_result$병의원_나누기_총인구*1000, NA)
 
@@ -17,6 +17,7 @@ View(money)
 View(num_hos)
 View(num_fixed)
 
+#0.전처리
 #컬럼 변경에 스케일링(전처리)
 #예산
 
@@ -36,7 +37,7 @@ n_num_fixed<- num_fixed %>% filter(!is.na(시설_정원_수)) %>%
 colnames(num_hos)<- c('city', '병의원_수')
 View(num_hos)
 
-#시각화
+#1.시각화
 
 #예산
 #(박스플롯 막대그래프 활용한 시각화)
@@ -90,13 +91,13 @@ abline(h = 38, col = "blue", lty = 1)
 abline(h = 45, col = "blue", lty = 1)
 
 
-#인구수로 나누기
+#2. 각 지표들 인구수로 나누기
 tot_pop<- read_excel('total_pop.xlsx')
 ins_pop<- read_excel('in_pop.xlsx')
 View(tot_pop)
 View(ins_pop)
 
-
+#2-1.전처리
 예산-병의원-총인구 컬럼 같아야함
 tot_money_hosp <- left_join(nn_money, nn_tot_pop, by = 'city')
 tot_money_hosp<- left_join(tot_money_hosp, nn_num_hos, by='city')
@@ -106,7 +107,7 @@ money_hosp_result<- tot_money_hosp %>%
   mutate(예산_나누기_총인구 = 예산_억원 / 건강보험_대상자,병의원_나누기_총인구 = 병의원_수 / 건강보험_대상자)
 View(money_hosp_result)
 
-정원-보험인구 컬럼 같아야함
+#정원-보험인구 컬럼 같아야함
 
 #예산 나누기 총인구
 n_money
@@ -177,13 +178,7 @@ fixed_num_result<- merged_data %>% mutate(정원_나누기_보험인구 = 시설
 
 View(fixed_num_result)
 
-
-
-#병의원 나누기 총인구
-num_hos
-
-
-#시각화 마지막
+#2-2. 시각화
 #예산 대비 전체 노인인구
 #_>노인1명당 투입되는 복지 예산. 곱하기 10만원 생각하면됨
 
